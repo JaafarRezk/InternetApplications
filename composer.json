@@ -6,12 +6,15 @@
     "license": "MIT",
     "require": {
         "php": "^8.1",
+        "barryvdh/laravel-dompdf": "*",
         "guzzlehttp/guzzle": "^7.2",
         "jason-guru/laravel-make-repository": "^0.0.3",
         "laravel/framework": "^10.10",
         "laravel/sanctum": "^3.3",
         "laravel/tinker": "^2.8",
+        "maatwebsite/excel": "*",
         "predis/predis": "^2.2",
+        "pusher/pusher-php-server": "^7.2",
         "spatie/laravel-permission": "^6.9",
         "spatie/laravel-route-discovery": "^1.0"
     },

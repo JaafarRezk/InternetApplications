@@ -55,8 +55,8 @@ namespace App\Models{
  * @property string|null $date
  * @property string $operation
  * @property string|null $status
- * @property \Illuminate\Support\Carbon|null $created_at
- * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property string|null $created_at
+ * @property string|null $updated_at
  * @property int|null $user_id
  * @property int|null $file_id
  * @method static \Illuminate\Database\Eloquent\Builder|FileLog newModelQuery()

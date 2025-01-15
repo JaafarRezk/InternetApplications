@@ -1,0 +1,159 @@
+<?php
+
+namespace App\Services;
+
+use App\Models\File;
+use App\Models\Group;
+use App\Exceptions\CreateObjectException;
+use Spatie\Permission\Models\Role;
+use App\Models\User;
+use App\Models\Notification;
+use App\Events\UserInvitationEvent;
+
+class GroupService extends Service{
+
+
+    CONST aspects_map = array(
+        'createGroup'=>array('TransactionAspect', 'LoggingAspect'),
+        'checkFilesOwnership'=>array('TransactionAspect', 'LoggingAspect'),
+        'addFilesToGroup'=>array('TransactionAspect', 'LoggingAspect'),
+        'addUsersToGroup'=>array('TransactionAspect', 'LoggingAspect'),
+        'removeFilesFromGroup'=>array('TransactionAspect', 'LoggingAspect'),
+        'removeUsersFromGroup'=>array('TransactionAspect', 'LoggingAspect'),
+        'checkUsersCheckedFilesInGroup'=>array('TransactionAspect', 'LoggingAspect'),
+        'getGroupFiles'=>array('TransactionAspect', 'LoggingAspect'),
+        'removeGroup'=>array('TransactionAspect', 'LoggingAspect'),
+        'userGroups'=>array('TransactionAspect', 'LoggingAspect'),
+        'groupsUserEnrolledIn'=>array('TransactionAspect', 'LoggingAspect'),
+    );
+  
+
+    public function createGroup($bodyParameters)
+    {
+        $parameters = [
+            'name' => $bodyParameters['name'],
+            'creator_id' => auth()->user()->id,
+        ];
+        $group = Group::createNewWithValidation($parameters);
+        return $group;
+    }
+
+
+    public function myGroups($id){
+        return Group::where('creator_id', $id)->get();
+    }
+
+    
+
+    public function addFilesToGroup($bodyParameters)
+{
+    $group = Group::fetchByIdWithCacheAndAuth($bodyParameters['group_id']);
+
+    $ids_arr = $bodyParameters['files_ids'];
+
+    if ($this->checkFilesOwnership($ids_arr)) {
+        $group->files()->syncWithoutDetaching($ids_arr);
+        return response()->json(['message' => 'Files added successfully!'], 200);
+    } else {
+        return response()->json(['error' => 'You do not own all the files.'], 403);
+    }
+}
+
+    public function checkFilesOwnership($ids_arr)
+    {
+        foreach($ids_arr as $id){
+            $file = File::fetchByIdWithCacheAndAuth($id);
+            if($file->user_id != auth()->user()->id){
+                return false;
+            }
+        }
+        return true;
+    }
+
+
+ 
+    public static function sendGroupInvitation($parameters)
+    {
+        try {
+            // جلب المجموعة باستخدام الـ group_id
+            $group = Group::fetchByIdWithCacheAndAuth($parameters['group_id']);
+    
+            // جلب المستخدم المدعو
+            $invitedUser = User::find($parameters['invited_user_id']);
+    
+            // إنشاء إشعار للمستخدم المدعو مع تضمين group_id
+            Notification::createNewWithValidation([
+                'user_id' => $parameters['invited_user_id'],
+                'group_id' => $parameters['group_id'],  // تضمين group_id هنا
+                'message' => "You have been invited to join the group: {$group->name}",
+                'time' => now(),
+            ]);
+    
+            // إرسال الحدث للمستمعين
+            event(new UserInvitationEvent($group, $invitedUser));
+    
+            return ['Invitation sent successfully'];
+        } catch (\Exception $e) {
+            \Log::error('Error sending invitation', ['message' => $e->getMessage()]);
+            throw $e;
+        }
+    }
+    
+
+public function respondToInvitation($parameters)
+{
+    try {
+        $user = auth()->user();
+
+        $group = Group::fetchByIdWithCacheAndAuth($parameters['group_id']);
+
+        if ($parameters['response'] === 'accept') {
+            $group->users()->syncWithoutDetaching([$user->id]);
+            return ['message' => 'Invitation accepted and user added to the group.'];
+        } elseif ($parameters['response'] === 'reject') {
+            return ['message' => 'Invitation rejected.'];
+        } else {
+            throw new \Exception('Invalid response value.');
+        }
+    } catch (\Exception $e) {
+        \Log::error('Error responding to invitation', ['message' => $e->getMessage()]);
+        throw $e;
+    }
+}
+
+
+public function searchUsers($query)
+{
+    try {
+        if (!auth()->check()) {
+            throw new \Exception("Unauthorized access");
+        }
+        $users = User::where('name', 'like', "%{$query}%")
+            ->orWhere('email', 'like', "%{$query}%")
+            ->limit(10) 
+            ->get(['id', 'name', 'email']);
+
+        return $users;
+    } catch (\Exception $e) {
+        \Log::error('Error searching users', ['message' => $e->getMessage()]);
+        throw $e;
+    }
+}
+
+public function removeFilesFromGroup($bodyParameters){
+    $group = Group::getObjectDAO($bodyParameters['group_id']);
+    $ids = $bodyParameters['files_ids'][0];
+    $ids_arr = preg_split ("/\,/", $ids);
+
+    if($this->checkFilesOwnership($ids_arr)){
+        foreach($ids_arr as $id){
+            $group->files()->detach($id);
+        }
+        return true;
+    }else{
+        return null;
+    }
+}
+
+}
+

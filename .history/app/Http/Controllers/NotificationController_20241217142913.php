@@ -1,0 +1,40 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use App\Events\NewNotification;
+use App\Models\Group;
+use App\Events\GroupInvitationEvent;
+use App\Events\UserNotificationEvent;
+use App\Models\User;
+
+class NotificationController extends Controller
+{
+    /*
+    public function sendNotification(Request $request)
+{
+    $message = $request->input('message');
+    broadcast(new NewNotification($message))->toOthers();
+    return response()->json(['status' => 'Notification sent!']);
+}
+
+
+*/
+
+public function sendGroupInvitation(Request $request, $groupId, $invitedUserId)
+{
+    // تحقق من صحة المعرفات
+    $group = Group::find($groupId);
+    $invitedUser = User::find($invitedUserId);
+
+    if (!$group) return response()->json(['error' => 'Group not found'], 404);
+    if (!$invitedUser) return response()->json(['error' => 'User not found'], 404);
+
+    // بث الإشعار
+    broadcast(new UserNotificationEvent("You have been invited to join group: {$group->name}"));
+
+    return response()->json(['message' => 'Invitation sent successfully']);
+}
+
+}

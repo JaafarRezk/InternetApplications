@@ -1,0 +1,135 @@
+<?php
+namespace App\Repositories;
+
+class GroupFacade extends Facade
+{
+    CONST aspects_map = array(
+        'createGroup' => array('TransactionAspect'),
+        'removeGroup'=> array('TransactionAspect'),
+        'addFilesToGroup'=> array('TransactionAspect'),
+        'addUsersToGroup'=> array('TransactionAspect'),
+        'removeFilesFromGroup'=> array('TransactionAspect'),
+        'removeUsersFromGroup'=> array('TransactionAspect'),
+        'myGroups'=> array('TransactionAspect'),
+        'enrolledGroups'=> array('TransactionAspect'),
+        'filesInGroup'=> array('TransactionAspect'),
+        'sendGroupInvitation' => array('TransactionAspect'), // إضافة هنا
+        'respondToInvitation' =>array('TransactionAspect'),
+    );
+
+    public function __construct($message)
+    {
+        parent::__construct($message);
+    }
+
+    public function createGroup()
+    {
+        $group = $this->groupService->createGroup($this->message['bodyParameters']);
+        $message = [
+            'group_id' => $group->id,
+            'users_ids' => [auth()->user()->id]
+        ];
+         //$groupAdded = $this->groupService->addUsersToGroup($message);
+        return $group;
+    }
+
+    public function myGroups(){
+        return $this->groupService->myGroups(auth()->user()->id);
+    }
+
+    public function addFilesToGroup()
+    {
+        $res = $this->groupService->addFilesToGroup($this->message['bodyParameters']);
+        return $res;
+    }
+ 
+    public function sendGroupInvitation()
+    {
+        // سجل المعاملات التي تم استلامها في السجلات
+        \Log::info('Body Parameters:', $this->message['bodyParameters']);
+        
+        // التحقق من وجود المعاملات المطلوبة
+        if (
+            !isset($this->message['bodyParameters']['group_id']) ||
+            !isset($this->message['bodyParameters']['invited_user_id'])
+        ) {
+            throw new \Exception('Missing required parameters: group_id or invited_user_id');
+        }
+    
+        // استخراج المعاملات المطلوبة من bodyParameters
+        $parameters = [
+            'group_id' => $this->message['bodyParameters']['group_id'],
+            'invited_user_id' => $this->message['bodyParameters']['invited_user_id']
+        ];
+    
+        // تمرير المعاملات إلى خدمة groupService لاستدعاء التابع sendGroupInvitation
+        return $this->groupService->sendGroupInvitation($parameters);
+    }
+    
+    public function respondToInvitation()
+    {
+        \Log::info('Body Parameters:', $this->message['bodyParameters']);
+        
+        if (
+            !isset($this->message['bodyParameters']['group_id']) ||
+            !isset($this->message['bodyParameters']['response'])
+        ) {
+            throw new \Exception('Missing required parameters: group_id or response');
+        }
+    
+        $parameters = [
+            'group_id' => $this->message['bodyParameters']['group_id'],
+            'response' => $this->message['bodyParameters']['response']
+        ];
+            return $this->groupService->respondToInvitation($parameters);
+    }
+    
+    
+  
+
+
+   
+    /*
+    public function removeFilesFromGroup()
+    {
+        $res = $this->groupService->removeFilesFromGroup($this->message['bodyParameters']);
+        return $res;
+    }
+    
+    public function removeUsersFromGroup()
+    {
+        $groupFiles = $this->groupService->getGroupFiles($this->message["bodyParameters"]["group_id"]);
+        $res = $this->groupService->removeUsersFromGroup($this->message['bodyParameters'],$groupFiles);
+        return $res;
+    }
+
+    public function removeGroup()
+    {
+
+        $id = $this->message['urlParameters']['id'];
+        $files = $this->groupService->getGroupFiles($id);
+
+        if(!empty($files->toArray())){
+            $files_ids_imploded= implode(', ', $files->pluck('id')->toArray());
+            $check = $this->fileService->bulkCheckIn($files_ids_imploded);
+        }
+
+        $res = $this->groupService->removeGroup($id);
+        $this->fileService->freeFiles($files);
+        return $res??null;
+    }
+    
+   
+    
+    public function enrolledGroups()
+    {
+        return $this->groupService->groupsUserEnrolledIn(auth()->user());
+    }
+    
+    public function filesInGroup()
+    {
+        $id = $this->message['urlParameters']['id'];
+        return $this->groupService->getGroupFiles($id);
+    }
+        */
+}
